@@ -41,19 +41,32 @@
 
 <!--more-->
 
-<h1 id="background">Background</h1>
+<ul>
+  <li><a href="#background">Background</a></li>
+  <li><a href="#proposal">Proposal</a></li>
+  <li><a href="#planning">Planning</a>
+    <ul>
+      <li><a href="#data-format">Data Format</a></li>
+      <li><a href="#ruleset-format">Ruleset Format</a></li>
+    </ul>
+  </li>
+  <li><a href="#implementation">Implementation</a></li>
+  <li><a href="#recommendations">Recommendations</a></li>
+</ul>
+
+<h2 id="background">Background</h2>
 
 <p>This summer, I completed a software engineering internship at Wish, an e-commerce company that connects manufacturers and small businesses directly to hundreds of millions of customers shopping on their platform. I was placed on the core infrastructure team to help with one of the team’s biggest tasks: migrating Wish infrastructure to Kubernetes.</p>
 
 <p>This process involved creating Kubernetes configuration files for</p>
 
-<h1 id="proposal">Proposal</h1>
+<h2 id="proposal">Proposal</h2>
 
 <p>The proposed tool will read in a list of gatekeeper rules and verify each rule within a given folder of Kubernetes configuration files. If a rule is broken, the tool will create an error and add it to a list. Finally, the tool will print out a list of errors that Ire produced.</p>
 
 <p>The final goal of gatekeeper will be to integrate it into a CI pipeline for deploying Kubernetes services. Gatekeeper will be part of a verification stage in the pipeline that automatically fails if any errors are encountered by it.</p>
 
-<h1 id="planning-phase">Planning Phase</h1>
+<h2 id="planning">Planning</h2>
 
 <p>I initially started out by brainstorming the possible rules that my team would want to implement in gatekeeper. After some thoughtful discussions with my co-workers, I came up with a list of options that should be easily customizable to best fit the use cases.</p>
 
@@ -66,7 +79,7 @@
 
 <p>The next step was to create a ruleset format that can capture these criteria.</p>
 
-<h2 id="data-format">Data Format</h2>
+<h3 id="data-format">Data Format</h3>
 
 <p>First, I had to determine which data format to use. I considered popular formats such as JSON, YAML, and XML as well as more powerful templating formats such as Jsonnet. In the end, I decided on Jsonnet to take advantage of its built-in functions feature. This way, I can easily implement new gatekeeper functions by creating predefined Jsonnet functions that return a JSON object containing the function information. Then I can simply inject them into the actual ruleset file to allow developers to create complex rule definitions using these predefined functions.</p>
 
@@ -113,7 +126,7 @@ local AND(op1, op2) = {
 
 <p>Other data formats such as JSON, YAML, or XML were too simple and would have bloated the ruleset file with function definitions and parameters. Jsonnet allowed me to abstract the preset gatekeeper functions out and keep the ruleset file clean, readable, and descriptive.</p>
 
-<h2 id="ruleset-jsonnet-format">Ruleset Jsonnet Format</h2>
+<h3 id="ruleset-format">Ruleset Format</h3>
 
 <p>Now that I have the data format, the next step was to design the layout of the ruleset.jsonnet file. For this, I used the ruleset criteria that I created during my brainstorming session.</p>
 
@@ -202,19 +215,92 @@ local AND(op1, op2) = {
 }
 </code></pre></div></div>
 
-<h1 id="implementation">Implementation</h1>
+<p>This format now satsifies the above criteria.</p>
 
-<p>Gatekeeper’s process in verifying each rule.</p>
+<h3 id="gatekeeper-functions">Gatekeeper Functions</h3>
 
-<p>CLI specification and how to use gatekeeper.</p>
+<h2 id="implementation">Implementation</h2>
 
-<p>How to implement the various parts of each rule. How to implement each gatekeeper function. How to parse unstructured JSON in Go. Traversing two ruletrees.</p>
+<p>Now that I have a format for the ruleset, I started implementing the actual CLI tool to parse this ruleset and apply it.</p>
 
-<h1 id="recommendations--potential-improvements">Recommendations &amp; Potential Improvements</h1>
+<p>First I needed to decide which language and framework to build the tool in. I wanted to start off with a solid base CLI framework that allowed me to easily implement new CLI commands, subcommands, flags, and arguments with ease. I also wanted to work with a language that I was familiar with so I wouldn’t have to spend time learning a new language. In the end, I chose to develop the CLI in Go using the Cobra CLI framework. I was already working with Go in previous projects at Wish, and the Cobra framework checked off all the requirements I had, including being built for development in Go.</p>
 
-<p>Add more gatekeeper rules to allow for more customizable rules
-Refactor some code to allow for more descriptive error messages
-Improve test coverage</p>
+<p>The first step was to construct the basic structure of the CLI tool. Luckily, Cobra came with a scaffolding tool that created a general CLI tool structure and layout.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gatekeeper/
+  cmd/
+    sample_command.go
+    root.go
+  main.go
+</code></pre></div></div>
+
+<p><code class="highlighter-rouge">main.go</code> will initialize Cobra, then call the main function in <code class="highlighter-rouge">root.go</code>, which will parse the input and forward to the relevant command functions. Each command is responsible for parsing and evaluating flags, arguments, and subcommands.</p>
+
+<p>The next step was to design a way to locate and parse the ruleset Jsonnet file and locate the folder to validate. There were several options for locating the ruleset file and target folder.</p>
+
+<ul>
+  <li>Pass the ruleset/folder path as a flag</li>
+  <li>Pass the ruleset/folder path as an argument</li>
+  <li>Put the ruleset/folder path inside a gatekeeper config file that gets parsed by <code class="highlighter-rouge">root.go</code></li>
+  <li>Create an environment variable with the ruleset/folder path</li>
+  <li>Have a default name and relative location for the ruleset file (this option cannot be used for target folder)</li>
+</ul>
+
+<p>Passing the path as a flag was a simple and effective solution that did not restrict the actual location of the ruleset and target folder. Putting the ruleset/folder path inside a config file seemed less intuitive and more work due to the extra steps of modifying the configuration file everytime you want to change the path. Creating an environment variable also seemed like a viable option that allowed freedom in ruleset/folder location. Finally, having a default name and location for the ruleset path was restrictive and only solved half the problem, but was the easiest and simplest to implement.</p>
+
+<p>After assessing all the options, I decided to implement the flag solution for the ruleset path and the argument solution for the target folder path. My reasoning was that specifying the target folder path was required for every run of gatekeeper since there can be no default location, while the ruleset file may have a standardized location in the future. Therefore, having the ruleset file path as a flag opened up the possibility of having it be an optional flag. Also, the flexibility of changing the flag and argument options enabled us to easily integrate the tool into Wish’s Jenkins pipelines.</p>
+
+<p>Parsing the ruleset was made very simple with Go’s json library. Since the structure of the ruleset file and each rule object was known, parsing it was as simple as creating structs with the same structure and types and serializing the raw json string into instances of those structs.</p>
+
+<p>Now that we have the ruleset data and target folder, the next step was to perform the actual validation.</p>
+
+<p>Based on the criteria and design explained in the above section, validation was a pretty straighforward process. Since each ruleset contained multiple rules, gatekeeper should loop through and validate each rule separately. Each rule verification should produce a list of encountered errors that’s appended to a master list to be printed at the end. For each rule being validated, use the <code class="highlighter-rouge">regex</code> and <code class="highlighter-rouge">ignore</code> field to selectively find and verify the correct files inside the target folder. Within each file, use the <code class="highlighter-rouge">kind</code> field to further narrow down to specific resources by resource type. Finally, for each resource, traverse the <code class="highlighter-rouge">ruleTree</code> field and the resource tree at the same time, creating errors when the two trees differ in structure. When a gatekeeper function is encountered in the <code class="highlighter-rouge">ruleTree</code>, apply the correct verification on the corresponding field in the resource tree based on the <code class="highlighter-rouge">type</code> (allow/deny).</p>
+
+<p>The implementation of the whole verification process was mostly outlined during the design &amp; planning phase. However, the structure of the errors returned needed some design and planning to best serve the use cases of gatekeeper.</p>
+
+<p>The initial vision for gatekeeper was a CLI tool that could be integrated into any pipeline to act as a verification stage. Therefore, having the error format be machine parseable and readable made the most sense. I decided to use a numbered list and format each error as a one line description and a corresponding JSON object containing more details and information.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>1. Broken LT() rule: 
+{
+	"actual": 24,
+	"expected": 20,
+	"key": "spec.replicas",
+	"path": "sample/service/sample.json",
+	"rule_type": "allow"
+}
+</code></pre></div></div>
+
+<p>This way, the output is still scannable by humans (by reading the one line description) and also parseable by machines to gain more relevant details (line number, file path, expected/actual values, etc.).</p>
+
+<h2 id="recommendations">Recommendations</h2>
+
+<p>Although gatekeeper is currently fully integrated into Wish’s Jenkins build pipeline for our Kubernetes repository, it is far from finished. There are many improvements and recommendations that can help elevate the tool to a more mature and production-ready state for everyone, not just Wish. Gatekeeper is an open-source tool, so it is important that Wish does not force its own ideologies and practices onto it.</p>
+
+<p>One major improvement would be to add more gatekeeper functions to allow for higher rule customizability. The current set of gatekeeper functions were selected based on the initial requirements of Wish’s own infrastructure team, so it definitely does not help with everyone’s needs. For example, the ability to validate container properties such as image name/version, arguments passed, and ports opened would probably be very useful for most people.</p>
+
+<p>Another quality of life improvement would be to refactor some code to improve the error description for logic functions like AND() or OR(). Currently, there are some limitations in the code that prevent the error information for these functions to include what actually caused the AND() or OR() to fail.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>1. Broken AND() rule:
+{
+  "op1": {
+    "gatekeeper": true,
+    "operation":  "&lt;",
+    "value":      4
+  },
+  "op2": {
+    "gatekeeper": true,
+    "operation":  "&gt;",
+    "value":      1
+  },
+	"key": "spec.replicas",
+	"path": "sample/service/sample.json",
+	"rule_type": "allow"
+}
+</code></pre></div></div>
+
+<p>Fixing this would eliminate the need to deep dive into the logic find the issue.</p>
+
+<p>Finally, a minor improvement for the overall flow of the tool would be to enable the use of environment variables for the ruleset file path. Although the current flag solution cover most use cases, it may be the case that the location of the ruleset file is fixed for a given environment. Using an environment variable would eliminate the need to specify a flag.</p>
 
 </article>
 
@@ -238,7 +324,7 @@ Improve test coverage</p>
 
       <footer class="footer">
         <small>
-          &copy; <time datetime="2018-09-11T14:19:16-04:00">2018</time>. All rights reserved.
+          &copy; <time datetime="2018-09-12T17:31:16-04:00">2018</time>. All rights reserved.
         </small>
       </footer>
     </div>

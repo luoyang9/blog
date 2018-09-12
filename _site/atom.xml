@@ -4,7 +4,7 @@
  <title>Charlie Zhang</title>
  <link href="https://charliezhang.me/bloghttps://charliezhang.me/blog/atom.xml" rel="self"/>
  <link href="https://charliezhang.me/bloghttps://charliezhang.me/blog/"/>
- <updated>2018-09-11T14:19:16-04:00</updated>
+ <updated>2018-09-12T17:31:16-04:00</updated>
  <id>https://charliezhang.me/blog</id>
  <author>
    <name>Charlie Zhang</name>
@@ -25,19 +25,32 @@
 
 &lt;!--more--&gt;
 
-&lt;h1 id=&quot;background&quot;&gt;Background&lt;/h1&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;#background&quot;&gt;Background&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;#proposal&quot;&gt;Proposal&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;#planning&quot;&gt;Planning&lt;/a&gt;
+    &lt;ul&gt;
+      &lt;li&gt;&lt;a href=&quot;#data-format&quot;&gt;Data Format&lt;/a&gt;&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;#ruleset-format&quot;&gt;Ruleset Format&lt;/a&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;#implementation&quot;&gt;Implementation&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;#recommendations&quot;&gt;Recommendations&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;background&quot;&gt;Background&lt;/h2&gt;
 
 &lt;p&gt;This summer, I completed a software engineering internship at Wish, an e-commerce company that connects manufacturers and small businesses directly to hundreds of millions of customers shopping on their platform. I was placed on the core infrastructure team to help with one of the team’s biggest tasks: migrating Wish infrastructure to Kubernetes.&lt;/p&gt;
 
 &lt;p&gt;This process involved creating Kubernetes configuration files for&lt;/p&gt;
 
-&lt;h1 id=&quot;proposal&quot;&gt;Proposal&lt;/h1&gt;
+&lt;h2 id=&quot;proposal&quot;&gt;Proposal&lt;/h2&gt;
 
 &lt;p&gt;The proposed tool will read in a list of gatekeeper rules and verify each rule within a given folder of Kubernetes configuration files. If a rule is broken, the tool will create an error and add it to a list. Finally, the tool will print out a list of errors that Ire produced.&lt;/p&gt;
 
 &lt;p&gt;The final goal of gatekeeper will be to integrate it into a CI pipeline for deploying Kubernetes services. Gatekeeper will be part of a verification stage in the pipeline that automatically fails if any errors are encountered by it.&lt;/p&gt;
 
-&lt;h1 id=&quot;planning-phase&quot;&gt;Planning Phase&lt;/h1&gt;
+&lt;h2 id=&quot;planning&quot;&gt;Planning&lt;/h2&gt;
 
 &lt;p&gt;I initially started out by brainstorming the possible rules that my team would want to implement in gatekeeper. After some thoughtful discussions with my co-workers, I came up with a list of options that should be easily customizable to best fit the use cases.&lt;/p&gt;
 
@@ -50,7 +63,7 @@
 
 &lt;p&gt;The next step was to create a ruleset format that can capture these criteria.&lt;/p&gt;
 
-&lt;h2 id=&quot;data-format&quot;&gt;Data Format&lt;/h2&gt;
+&lt;h3 id=&quot;data-format&quot;&gt;Data Format&lt;/h3&gt;
 
 &lt;p&gt;First, I had to determine which data format to use. I considered popular formats such as JSON, YAML, and XML as well as more powerful templating formats such as Jsonnet. In the end, I decided on Jsonnet to take advantage of its built-in functions feature. This way, I can easily implement new gatekeeper functions by creating predefined Jsonnet functions that return a JSON object containing the function information. Then I can simply inject them into the actual ruleset file to allow developers to create complex rule definitions using these predefined functions.&lt;/p&gt;
 
@@ -97,7 +110,7 @@ local AND(op1, op2) = {
 
 &lt;p&gt;Other data formats such as JSON, YAML, or XML were too simple and would have bloated the ruleset file with function definitions and parameters. Jsonnet allowed me to abstract the preset gatekeeper functions out and keep the ruleset file clean, readable, and descriptive.&lt;/p&gt;
 
-&lt;h2 id=&quot;ruleset-jsonnet-format&quot;&gt;Ruleset Jsonnet Format&lt;/h2&gt;
+&lt;h3 id=&quot;ruleset-format&quot;&gt;Ruleset Format&lt;/h3&gt;
 
 &lt;p&gt;Now that I have the data format, the next step was to design the layout of the ruleset.jsonnet file. For this, I used the ruleset criteria that I created during my brainstorming session.&lt;/p&gt;
 
@@ -186,19 +199,92 @@ local AND(op1, op2) = {
 }
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
 
-&lt;h1 id=&quot;implementation&quot;&gt;Implementation&lt;/h1&gt;
+&lt;p&gt;This format now satsifies the above criteria.&lt;/p&gt;
 
-&lt;p&gt;Gatekeeper’s process in verifying each rule.&lt;/p&gt;
+&lt;h3 id=&quot;gatekeeper-functions&quot;&gt;Gatekeeper Functions&lt;/h3&gt;
 
-&lt;p&gt;CLI specification and how to use gatekeeper.&lt;/p&gt;
+&lt;h2 id=&quot;implementation&quot;&gt;Implementation&lt;/h2&gt;
 
-&lt;p&gt;How to implement the various parts of each rule. How to implement each gatekeeper function. How to parse unstructured JSON in Go. Traversing two ruletrees.&lt;/p&gt;
+&lt;p&gt;Now that I have a format for the ruleset, I started implementing the actual CLI tool to parse this ruleset and apply it.&lt;/p&gt;
 
-&lt;h1 id=&quot;recommendations--potential-improvements&quot;&gt;Recommendations &amp;amp; Potential Improvements&lt;/h1&gt;
+&lt;p&gt;First I needed to decide which language and framework to build the tool in. I wanted to start off with a solid base CLI framework that allowed me to easily implement new CLI commands, subcommands, flags, and arguments with ease. I also wanted to work with a language that I was familiar with so I wouldn’t have to spend time learning a new language. In the end, I chose to develop the CLI in Go using the Cobra CLI framework. I was already working with Go in previous projects at Wish, and the Cobra framework checked off all the requirements I had, including being built for development in Go.&lt;/p&gt;
 
-&lt;p&gt;Add more gatekeeper rules to allow for more customizable rules
-Refactor some code to allow for more descriptive error messages
-Improve test coverage&lt;/p&gt;
+&lt;p&gt;The first step was to construct the basic structure of the CLI tool. Luckily, Cobra came with a scaffolding tool that created a general CLI tool structure and layout.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;gatekeeper/
+  cmd/
+    sample_command.go
+    root.go
+  main.go
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;main.go&lt;/code&gt; will initialize Cobra, then call the main function in &lt;code class=&quot;highlighter-rouge&quot;&gt;root.go&lt;/code&gt;, which will parse the input and forward to the relevant command functions. Each command is responsible for parsing and evaluating flags, arguments, and subcommands.&lt;/p&gt;
+
+&lt;p&gt;The next step was to design a way to locate and parse the ruleset Jsonnet file and locate the folder to validate. There were several options for locating the ruleset file and target folder.&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Pass the ruleset/folder path as a flag&lt;/li&gt;
+  &lt;li&gt;Pass the ruleset/folder path as an argument&lt;/li&gt;
+  &lt;li&gt;Put the ruleset/folder path inside a gatekeeper config file that gets parsed by &lt;code class=&quot;highlighter-rouge&quot;&gt;root.go&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Create an environment variable with the ruleset/folder path&lt;/li&gt;
+  &lt;li&gt;Have a default name and relative location for the ruleset file (this option cannot be used for target folder)&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Passing the path as a flag was a simple and effective solution that did not restrict the actual location of the ruleset and target folder. Putting the ruleset/folder path inside a config file seemed less intuitive and more work due to the extra steps of modifying the configuration file everytime you want to change the path. Creating an environment variable also seemed like a viable option that allowed freedom in ruleset/folder location. Finally, having a default name and location for the ruleset path was restrictive and only solved half the problem, but was the easiest and simplest to implement.&lt;/p&gt;
+
+&lt;p&gt;After assessing all the options, I decided to implement the flag solution for the ruleset path and the argument solution for the target folder path. My reasoning was that specifying the target folder path was required for every run of gatekeeper since there can be no default location, while the ruleset file may have a standardized location in the future. Therefore, having the ruleset file path as a flag opened up the possibility of having it be an optional flag. Also, the flexibility of changing the flag and argument options enabled us to easily integrate the tool into Wish’s Jenkins pipelines.&lt;/p&gt;
+
+&lt;p&gt;Parsing the ruleset was made very simple with Go’s json library. Since the structure of the ruleset file and each rule object was known, parsing it was as simple as creating structs with the same structure and types and serializing the raw json string into instances of those structs.&lt;/p&gt;
+
+&lt;p&gt;Now that we have the ruleset data and target folder, the next step was to perform the actual validation.&lt;/p&gt;
+
+&lt;p&gt;Based on the criteria and design explained in the above section, validation was a pretty straighforward process. Since each ruleset contained multiple rules, gatekeeper should loop through and validate each rule separately. Each rule verification should produce a list of encountered errors that’s appended to a master list to be printed at the end. For each rule being validated, use the &lt;code class=&quot;highlighter-rouge&quot;&gt;regex&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;ignore&lt;/code&gt; field to selectively find and verify the correct files inside the target folder. Within each file, use the &lt;code class=&quot;highlighter-rouge&quot;&gt;kind&lt;/code&gt; field to further narrow down to specific resources by resource type. Finally, for each resource, traverse the &lt;code class=&quot;highlighter-rouge&quot;&gt;ruleTree&lt;/code&gt; field and the resource tree at the same time, creating errors when the two trees differ in structure. When a gatekeeper function is encountered in the &lt;code class=&quot;highlighter-rouge&quot;&gt;ruleTree&lt;/code&gt;, apply the correct verification on the corresponding field in the resource tree based on the &lt;code class=&quot;highlighter-rouge&quot;&gt;type&lt;/code&gt; (allow/deny).&lt;/p&gt;
+
+&lt;p&gt;The implementation of the whole verification process was mostly outlined during the design &amp;amp; planning phase. However, the structure of the errors returned needed some design and planning to best serve the use cases of gatekeeper.&lt;/p&gt;
+
+&lt;p&gt;The initial vision for gatekeeper was a CLI tool that could be integrated into any pipeline to act as a verification stage. Therefore, having the error format be machine parseable and readable made the most sense. I decided to use a numbered list and format each error as a one line description and a corresponding JSON object containing more details and information.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;1. Broken LT() rule: 
+{
+	&quot;actual&quot;: 24,
+	&quot;expected&quot;: 20,
+	&quot;key&quot;: &quot;spec.replicas&quot;,
+	&quot;path&quot;: &quot;sample/service/sample.json&quot;,
+	&quot;rule_type&quot;: &quot;allow&quot;
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;This way, the output is still scannable by humans (by reading the one line description) and also parseable by machines to gain more relevant details (line number, file path, expected/actual values, etc.).&lt;/p&gt;
+
+&lt;h2 id=&quot;recommendations&quot;&gt;Recommendations&lt;/h2&gt;
+
+&lt;p&gt;Although gatekeeper is currently fully integrated into Wish’s Jenkins build pipeline for our Kubernetes repository, it is far from finished. There are many improvements and recommendations that can help elevate the tool to a more mature and production-ready state for everyone, not just Wish. Gatekeeper is an open-source tool, so it is important that Wish does not force its own ideologies and practices onto it.&lt;/p&gt;
+
+&lt;p&gt;One major improvement would be to add more gatekeeper functions to allow for higher rule customizability. The current set of gatekeeper functions were selected based on the initial requirements of Wish’s own infrastructure team, so it definitely does not help with everyone’s needs. For example, the ability to validate container properties such as image name/version, arguments passed, and ports opened would probably be very useful for most people.&lt;/p&gt;
+
+&lt;p&gt;Another quality of life improvement would be to refactor some code to improve the error description for logic functions like AND() or OR(). Currently, there are some limitations in the code that prevent the error information for these functions to include what actually caused the AND() or OR() to fail.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;1. Broken AND() rule:
+{
+  &quot;op1&quot;: {
+    &quot;gatekeeper&quot;: true,
+    &quot;operation&quot;:  &quot;&amp;lt;&quot;,
+    &quot;value&quot;:      4
+  },
+  &quot;op2&quot;: {
+    &quot;gatekeeper&quot;: true,
+    &quot;operation&quot;:  &quot;&amp;gt;&quot;,
+    &quot;value&quot;:      1
+  },
+	&quot;key&quot;: &quot;spec.replicas&quot;,
+	&quot;path&quot;: &quot;sample/service/sample.json&quot;,
+	&quot;rule_type&quot;: &quot;allow&quot;
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Fixing this would eliminate the need to deep dive into the logic find the issue.&lt;/p&gt;
+
+&lt;p&gt;Finally, a minor improvement for the overall flow of the tool would be to enable the use of environment variables for the ruleset file path. Although the current flag solution cover most use cases, it may be the case that the location of the ruleset file is fixed for a given environment. Using an environment variable would eliminate the need to specify a flag.&lt;/p&gt;
 </content>
  </entry>
  

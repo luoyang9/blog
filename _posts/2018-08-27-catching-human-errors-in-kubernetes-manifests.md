@@ -11,6 +11,14 @@ Validating your Kubernetes manifests using custom rules that you can set would r
 
 <!--more-->
 
+- [Background](#background)
+- [Proposal](#proposal)
+- [Planning](#planning)
+  - [Data Format](#data-format)
+  - [Ruleset Format](#ruleset-format)
+- [Implementation](#implementation)
+- [Recommendations](#recommendations)
+
 ## Background
 
 This summer, I completed a software engineering internship at Wish, an e-commerce company that connects manufacturers and small businesses directly to hundreds of millions of customers shopping on their platform. I was placed on the core infrastructure team to help with one of the team's biggest tasks: migrating Wish infrastructure to Kubernetes. 
@@ -23,7 +31,7 @@ The proposed tool will read in a list of gatekeeper rules and verify each rule w
 
 The final goal of gatekeeper will be to integrate it into a CI pipeline for deploying Kubernetes services. Gatekeeper will be part of a verification stage in the pipeline that automatically fails if any errors are encountered by it.
 
-## Planning Phase
+## Planning
 
 I initially started out by brainstorming the possible rules that my team would want to implement in gatekeeper. After some thoughtful discussions with my co-workers, I came up with a list of options that should be easily customizable to best fit the use cases.
 
@@ -83,7 +91,7 @@ In this rule, I verify that the `spec.replicas` field is greater than `2` and le
 
 Other data formats such as JSON, YAML, or XML were too simple and would have bloated the ruleset file with function definitions and parameters. Jsonnet allowed me to abstract the preset gatekeeper functions out and keep the ruleset file clean, readable, and descriptive.
 
-### Ruleset Jsonnet Format
+### Ruleset Format
 
 Now that I have the data format, the next step was to design the layout of the ruleset.jsonnet file. For this, I used the ruleset criteria that I created during my brainstorming session.
 
@@ -178,17 +186,94 @@ Finally, to satisfy the fourth criterion, I added a `ruleTree` field that contai
 }
 ```
 
+This format now satsifies the above criteria. 
+
+### Gatekeeper Functions
+
+
+
 ## Implementation
 
-Gatekeeper's process in verifying each rule.
+Now that I have a format for the ruleset, I started implementing the actual CLI tool to parse this ruleset and apply it. 
 
-CLI specification and how to use gatekeeper.
-
-How to implement the various parts of each rule. How to implement each gatekeeper function. How to parse unstructured JSON in Go. Traversing two ruletrees.
+First I needed to decide which language and framework to build the tool in. I wanted to start off with a solid base CLI framework that allowed me to easily implement new CLI commands, subcommands, flags, and arguments with ease. I also wanted to work with a language that I was familiar with so I wouldn't have to spend time learning a new language. In the end, I chose to develop the CLI in Go using the Cobra CLI framework. I was already working with Go in previous projects at Wish, and the Cobra framework checked off all the requirements I had, including being built for development in Go.
 
 
-## Recommendations & Potential Improvements
+The first step was to construct the basic structure of the CLI tool. Luckily, Cobra came with a scaffolding tool that created a general CLI tool structure and layout. 
 
-Add more gatekeeper rules to allow for more customizable rules
-Refactor some code to allow for more descriptive error messages
-Improve test coverage
+```
+gatekeeper/
+  cmd/
+    sample_command.go
+    root.go
+  main.go
+```
+
+`main.go` will initialize Cobra, then call the main function in `root.go`, which will parse the input and forward to the relevant command functions. Each command is responsible for parsing and evaluating flags, arguments, and subcommands.
+
+The next step was to design a way to locate and parse the ruleset Jsonnet file and locate the folder to validate. There were several options for locating the ruleset file and target folder.
+
+- Pass the ruleset/folder path as a flag
+- Pass the ruleset/folder path as an argument
+- Put the ruleset/folder path inside a gatekeeper config file that gets parsed by `root.go`
+- Create an environment variable with the ruleset/folder path
+- Have a default name and relative location for the ruleset file (this option cannot be used for target folder)
+
+Passing the path as a flag was a simple and effective solution that did not restrict the actual location of the ruleset and target folder. Putting the ruleset/folder path inside a config file seemed less intuitive and more work due to the extra steps of modifying the configuration file everytime you want to change the path. Creating an environment variable also seemed like a viable option that allowed freedom in ruleset/folder location. Finally, having a default name and location for the ruleset path was restrictive and only solved half the problem, but was the easiest and simplest to implement. 
+
+After assessing all the options, I decided to implement the flag solution for the ruleset path and the argument solution for the target folder path. My reasoning was that specifying the target folder path was required for every run of gatekeeper since there can be no default location, while the ruleset file may have a standardized location in the future. Therefore, having the ruleset file path as a flag opened up the possibility of having it be an optional flag. Also, the flexibility of changing the flag and argument options enabled us to easily integrate the tool into Wish's Jenkins pipelines.
+
+Parsing the ruleset was made very simple with Go's json library. Since the structure of the ruleset file and each rule object was known, parsing it was as simple as creating structs with the same structure and types and serializing the raw json string into instances of those structs.
+
+Now that we have the ruleset data and target folder, the next step was to perform the actual validation.
+
+Based on the criteria and design explained in the above section, validation was a pretty straighforward process. Since each ruleset contained multiple rules, gatekeeper should loop through and validate each rule separately. Each rule verification should produce a list of encountered errors that's appended to a master list to be printed at the end. For each rule being validated, use the `regex` and `ignore` field to selectively find and verify the correct files inside the target folder. Within each file, use the `kind` field to further narrow down to specific resources by resource type. Finally, for each resource, traverse the `ruleTree` field and the resource tree at the same time, creating errors when the two trees differ in structure. When a gatekeeper function is encountered in the `ruleTree`, apply the correct verification on the corresponding field in the resource tree based on the `type` (allow/deny).
+
+The implementation of the whole verification process was mostly outlined during the design & planning phase. However, the structure of the errors returned needed some design and planning to best serve the use cases of gatekeeper.
+
+The initial vision for gatekeeper was a CLI tool that could be integrated into any pipeline to act as a verification stage. Therefore, having the error format be machine parseable and readable made the most sense. I decided to use a numbered list and format each error as a one line description and a corresponding JSON object containing more details and information. 
+
+```
+1. Broken LT() rule: 
+{
+	"actual": 24,
+	"expected": 20,
+	"key": "spec.replicas",
+	"path": "sample/service/sample.json",
+	"rule_type": "allow"
+}
+```
+
+This way, the output is still scannable by humans (by reading the one line description) and also parseable by machines to gain more relevant details (line number, file path, expected/actual values, etc.).
+
+
+## Recommendations
+
+Although gatekeeper is currently fully integrated into Wish's Jenkins build pipeline for our Kubernetes repository, it is far from finished. There are many improvements and recommendations that can help elevate the tool to a more mature and production-ready state for everyone, not just Wish. Gatekeeper is an open-source tool, so it is important that Wish does not force its own ideologies and practices onto it.
+
+One major improvement would be to add more gatekeeper functions to allow for higher rule customizability. The current set of gatekeeper functions were selected based on the initial requirements of Wish's own infrastructure team, so it definitely does not help with everyone's needs. For example, the ability to validate container properties such as image name/version, arguments passed, and ports opened would probably be very useful for most people.
+
+Another quality of life improvement would be to refactor some code to improve the error description for logic functions like AND() or OR(). Currently, there are some limitations in the code that prevent the error information for these functions to include what actually caused the AND() or OR() to fail.
+
+```
+1. Broken AND() rule:
+{
+  "op1": {
+    "gatekeeper": true,
+    "operation":  "<",
+    "value":      4
+  },
+  "op2": {
+    "gatekeeper": true,
+    "operation":  ">",
+    "value":      1
+  },
+	"key": "spec.replicas",
+	"path": "sample/service/sample.json",
+	"rule_type": "allow"
+}
+```
+
+Fixing this would eliminate the need to deep dive into the logic find the issue.
+
+Finally, a minor improvement for the overall flow of the tool would be to enable the use of environment variables for the ruleset file path. Although the current flag solution cover most use cases, it may be the case that the location of the ruleset file is fixed for a given environment. Using an environment variable would eliminate the need to specify a flag.
