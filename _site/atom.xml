@@ -4,7 +4,7 @@
  <title>Charlie Zhang</title>
  <link href="https://charliezhang.me/bloghttps://charliezhang.me/blog/atom.xml" rel="self"/>
  <link href="https://charliezhang.me/bloghttps://charliezhang.me/blog/"/>
- <updated>2018-09-12T17:31:16-04:00</updated>
+ <updated>2018-09-12T18:15:06-04:00</updated>
  <id>https://charliezhang.me/blog</id>
  <author>
    <name>Charlie Zhang</name>
@@ -17,11 +17,11 @@
    <link href="https://charliezhang.me/bloghttps://charliezhang.me/blog/2018/08/27/catching-human-errors-in-kubernetes-manifests/"/>
    <updated>2018-08-27T00:00:00-04:00</updated>
    <id>https://charliezhang.me/blog/2018/08/27/catching-human-errors-in-kubernetes-manifests</id>
-   <content type="html">&lt;p&gt;Kubernetes is a poIrful container orchestration tool that is being rapidly adopted across the software industry.&lt;/p&gt;
+   <content type="html">&lt;p&gt;Kubernetes is a powerful container orchestration tool that is being rapidly adopted across the software industry.&lt;/p&gt;
 
-&lt;p&gt;HoIver, getting Kubernetes to run requires a lot of configuration files that define the resources it manages (Deployments, Services, ConfigMaps, Secrets, and more). All these files can get really complex really fast, and a couple of simple human errors in the configuration can potentially lead to hours of production downtime if no one catches it.&lt;/p&gt;
+&lt;p&gt;However, getting Kubernetes to run requires a lot of configuration files that define the resources it manages (Deployments, Services, ConfigMaps, Secrets, and more). All these files can get really complex really fast, and a couple of simple human errors in the configuration can potentially lead to hours of production downtime if no one catches it.&lt;/p&gt;
 
-&lt;p&gt;Validating your Kubernetes manifests using custom rules that you can set would reduce or eliminate the amount of errors that make it to production.&lt;/p&gt;
+&lt;p&gt;Validating your Kubernetes manifests using rules that you can customize would greatly reduce or eliminate the amount of human errors that make it to production. Luckily, during my summer internship at Wish, I built a tool to solve that problem: &lt;code class=&quot;highlighter-rouge&quot;&gt;gatekeeper&lt;/code&gt;.&lt;/p&gt;
 
 &lt;!--more--&gt;
 
@@ -42,11 +42,11 @@
 
 &lt;p&gt;This summer, I completed a software engineering internship at Wish, an e-commerce company that connects manufacturers and small businesses directly to hundreds of millions of customers shopping on their platform. I was placed on the core infrastructure team to help with one of the team’s biggest tasks: migrating Wish infrastructure to Kubernetes.&lt;/p&gt;
 
-&lt;p&gt;This process involved creating Kubernetes configuration files for&lt;/p&gt;
+&lt;p&gt;This process involved creating Kubernetes configuration files for every Wish service. It was decided that the owners of each service would create the Kubernetes files required to migrate their service to Kubernetes, as they understand the service the best. To help them with that process, my team created an onbarding wiki and documentation for Kubernetes to show them exactly how to write Kubernetes configuration files. However, even the best software engineers make human mistakes, and one costly mistake in the configuration files for a critical service caused a massive service outage. In response to this, my team and I decided to build a new tool that would verify each new Kubernetes manifest before it was merged into the Kubernetes repository.&lt;/p&gt;
 
 &lt;h2 id=&quot;proposal&quot;&gt;Proposal&lt;/h2&gt;
 
-&lt;p&gt;The proposed tool will read in a list of gatekeeper rules and verify each rule within a given folder of Kubernetes configuration files. If a rule is broken, the tool will create an error and add it to a list. Finally, the tool will print out a list of errors that Ire produced.&lt;/p&gt;
+&lt;p&gt;The proposed tool will read in a list of gatekeeper rules and verify each rule within a given folder of Kubernetes configuration files. If a rule is broken, the tool will create an error and add it to a list. Finally, the tool will print out a list of errors that were produced.&lt;/p&gt;
 
 &lt;p&gt;The final goal of gatekeeper will be to integrate it into a CI pipeline for deploying Kubernetes services. Gatekeeper will be part of a verification stage in the pipeline that automatically fails if any errors are encountered by it.&lt;/p&gt;
 
@@ -200,8 +200,6 @@ local AND(op1, op2) = {
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
 
 &lt;p&gt;This format now satsifies the above criteria.&lt;/p&gt;
-
-&lt;h3 id=&quot;gatekeeper-functions&quot;&gt;Gatekeeper Functions&lt;/h3&gt;
 
 &lt;h2 id=&quot;implementation&quot;&gt;Implementation&lt;/h2&gt;
 

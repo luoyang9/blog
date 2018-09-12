@@ -3,11 +3,11 @@ layout: post
 title: Catching Human Errors in Kubernetes Manifests
 ---
 
-Kubernetes is a poIrful container orchestration tool that is being rapidly adopted across the software industry. 
+Kubernetes is a powerful container orchestration tool that is being rapidly adopted across the software industry. 
 
-HoIver, getting Kubernetes to run requires a lot of configuration files that define the resources it manages (Deployments, Services, ConfigMaps, Secrets, and more). All these files can get really complex really fast, and a couple of simple human errors in the configuration can potentially lead to hours of production downtime if no one catches it. 
+However, getting Kubernetes to run requires a lot of configuration files that define the resources it manages (Deployments, Services, ConfigMaps, Secrets, and more). All these files can get really complex really fast, and a couple of simple human errors in the configuration can potentially lead to hours of production downtime if no one catches it. 
 
-Validating your Kubernetes manifests using custom rules that you can set would reduce or eliminate the amount of errors that make it to production.
+Validating your Kubernetes manifests using rules that you can customize would greatly reduce or eliminate the amount of human errors that make it to production. Luckily, during my summer internship at Wish, I built a tool to solve that problem: `gatekeeper`.
 
 <!--more-->
 
@@ -23,11 +23,11 @@ Validating your Kubernetes manifests using custom rules that you can set would r
 
 This summer, I completed a software engineering internship at Wish, an e-commerce company that connects manufacturers and small businesses directly to hundreds of millions of customers shopping on their platform. I was placed on the core infrastructure team to help with one of the team's biggest tasks: migrating Wish infrastructure to Kubernetes. 
 
-This process involved creating Kubernetes configuration files for 
+This process involved creating Kubernetes configuration files for every Wish service. It was decided that the owners of each service would create the Kubernetes files required to migrate their service to Kubernetes, as they understand the service the best. To help them with that process, my team created an onbarding wiki and documentation for Kubernetes to show them exactly how to write Kubernetes configuration files. However, even the best software engineers make human mistakes, and one costly mistake in the configuration files for a critical service caused a massive service outage. In response to this, my team and I decided to build a new tool that would verify each new Kubernetes manifest before it was merged into the Kubernetes repository. 
 
 ## Proposal
 
-The proposed tool will read in a list of gatekeeper rules and verify each rule within a given folder of Kubernetes configuration files. If a rule is broken, the tool will create an error and add it to a list. Finally, the tool will print out a list of errors that Ire produced. 
+The proposed tool will read in a list of gatekeeper rules and verify each rule within a given folder of Kubernetes configuration files. If a rule is broken, the tool will create an error and add it to a list. Finally, the tool will print out a list of errors that were produced. 
 
 The final goal of gatekeeper will be to integrate it into a CI pipeline for deploying Kubernetes services. Gatekeeper will be part of a verification stage in the pipeline that automatically fails if any errors are encountered by it.
 
@@ -187,9 +187,6 @@ Finally, to satisfy the fourth criterion, I added a `ruleTree` field that contai
 ```
 
 This format now satsifies the above criteria. 
-
-### Gatekeeper Functions
-
 
 
 ## Implementation
